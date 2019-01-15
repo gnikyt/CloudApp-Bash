@@ -1,0 +1,112 @@
+#!/bin/bash
+source $HOME/.cloudapp
+
+# Requests to upload to CloudApp.
+# Returns S3 params and a URL to POST to.
+function request_upload {
+  echo $(curl -X GET --silent --digest --user $username:$password --header "Accept: application/json" https://my.cl.ly/items/new)
+}
+
+# Gets the extension of the file to upload.
+function get_file_extension {
+  # Get the file's details
+  local filename="$(basename -- "$1")"
+  local extension="${filename##*.}"
+  
+  echo $extension
+}
+
+# Move file to tmp so we can modify it and not touch the original.
+function move_to_tmp {
+  local new_filename="$(echo /tmp/$(date +%Y_%m_%d_%H%M%S)."$2")"
+  cp "$1" $new_filename
+
+  echo $new_filename
+}
+
+# Attempts to do basic conversion of video file to mp4
+function convert_video_file {
+  local new_filename="$(echo "$1.mp4")"
+  ffmpeg -loglevel panic -i $1 $new_filename
+  
+  echo $new_filename
+}
+
+# Uploads the file to S3
+function upload_file {
+  # Request to upload
+  local response=$(request_upload)
+
+  # Get the URL from the JSON, removing quotes
+  local url="$(echo "$response" | jq '.url' | sed 's/\"//g')"
+
+  # Get the params from the response, replacing ${filename} with the filename to upload
+  local params="$(echo "$response" | jq '.params' | sed 's/${filename}/x.jpg/g')"
+
+  # Use jq to convert the JSON array into CURL params (-F key=value)
+  local form_values="$(echo $params | jq -r '. | to_entries | .[] | "-F " + .key + "=" + .value + " "' | tr -d '\n')"
+
+  # Append the file to upload
+  local form_values="${form_values}-F file=@${1}"
+
+  # Send to S3
+  local post_response="$(curl --silent -i -X POST $form_values $url)"
+
+  # Get the location of the file upload
+  local location="$(echo "$post_response" | grep -oP 'Location: \K.*' | tr -d '\r')"
+
+  echo $location
+}
+
+# Get the content URL from the uploaded file.
+function get_content_url {
+  # Ping it, and get the url, removing quotes
+  local content_url="$(curl --silent -X GET --digest --user "$username":"$password" --header "Accept: application/json" $location | jq '.url' | sed 's/\"//g')"
+
+  echo $content_url
+}
+
+# Uploads the file to the S3 Bucket.
+# It will perform checks on the filename and do different actions
+# depending upon settings and the file type.
+function handle_file {
+  # Get the extension
+  local extension="$(get_file_extension "$1")"
+
+  # Move to tmp and rename
+  local new_filename="$(move_to_tmp "${1}" "${extension}")"
+
+  # Check to convert video
+  if [ "$convert_video" == "1" ] ; then
+    # Check if this is a video
+    local test_file="$(file -i "$new_filename" | grep video)"
+    if [ "$test_file" ] ; then
+      if [[ ! $extension =~ ^(MP4|mp4)$ ]] ; then
+        local new_filename="$(convert_video_file "$new_filename")"
+      fi
+    fi
+  fi
+
+  # Upload the file and get the file URL
+  local location="$(upload_file "$new_filename")"
+  local content_url="$(get_content_url "$location")"
+
+  # Copy to clipboard for use
+  echo $content_url | xclip -selection clipboard
+  
+  # Check if we should notify
+  if [ "$notify" == "1" ] ; then
+    notify-send "CloudApp File Ready!" "It has been copied to your clipboard."
+   fi;
+}
+
+# Watches the folder specified for writes or moves
+function watch_directory {
+  inotifywait --quiet --event close_write,moved_to -m $watch_dir |
+  while read -r directory events filename; do
+    handle_file "$watch_dir/$filename"
+  done
+}
+
+# Start!
+watch_directory
