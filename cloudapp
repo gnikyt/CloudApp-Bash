@@ -21,26 +21,29 @@ function get_file_extension {
 
 # Move file to tmp so we can modify it and not touch the original.
 function move_to_tmp {
-  local new_filename
-  new_filename="/tmp/$(date +%Y_%m_%d_%H%M%S).$2"
+  local new_filepath
+  new_filepath="/tmp/$(date +%Y_%m_%d_%H%M%S).$2"
 
-  cp "$1" "$new_filename"
+  cp "$1" "$new_filepath"
 
-  echo "$new_filename"
+  echo "$new_filepath"
 }
 
 # Attempts to do basic conversion of video file to mp4
 function convert_video_file {
-  local new_filename
-  new_filename="$1.mp4"
+  local new_filepath
+  new_filepath="$1.mp4"
 
-  ffmpeg -loglevel panic -i "$1" "$new_filename"
+  ffmpeg -loglevel panic -i "$1" "$new_filepath"
   
-  echo "$new_filename"
+  echo "$new_filepath"
 }
 
 # Uploads the file to S3
 function upload_file {
+  local filename
+  filename="$(basename -- "$1")"
+
   # Request to upload
   local response
   response=$(request_upload)
@@ -51,7 +54,7 @@ function upload_file {
 
   # Get the params from the response, replacing ${filename} with the filename to upload
   local params
-  params="$(echo "$response" | jq '.params' | sed 's/${filename}/x.jpg/g')"
+  params="$(echo "$response" | jq '.params' | sed 's|${filename}|'"$filename"'|g')"
 
   # Use jq to convert the JSON array into CURL params (-F key=value)
   local form_values
@@ -89,25 +92,25 @@ function handle_file {
   extension="$(get_file_extension "$1")"
 
   # Move to tmp and rename
-  local new_filename
-  new_filename="$(move_to_tmp "${1}" "${extension}")"
+  local new_filepath
+  new_filepath="$(move_to_tmp "${1}" "${extension}")"
 
   # Check to convert video
   if [ "$convert_video" == "1" ] ; then
     # Check if this is a video
     local test_file
-    test_file="$(file -i "$new_filename" | grep video)"
+    test_file="$(file -i "$new_filepath" | grep video)"
 
     if [ "$test_file" ] ; then
       if [[ ! $extension =~ ^(MP4|mp4)$ ]] ; then
-        new_filename="$(convert_video_file "$new_filename")"
+        new_filepath="$(convert_video_file "$new_filepath")"
       fi
     fi
   fi
 
   # Upload the file and get the file URL
   local location
-  location="$(upload_file "$new_filename")"
+  location="$(upload_file "$new_filepath")"
 
   local content_url
   content_url="$(get_content_url "$location")"

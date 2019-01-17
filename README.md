@@ -2,6 +2,8 @@
 
 Basic CloudApp implementation for Linux written in Bash. It will watch a directory for new files, upload to your CloudApp account and copy the share URL to your clipboard.
 
+![Sample](sample.gif?raw=true "Sample")
+
 ## Installation
 
 First, you'll need the following:
