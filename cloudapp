@@ -3,12 +3,12 @@ source ~/.cloudapp
 
 # Requests to upload to CloudApp.
 # Returns S3 params and a URL to POST to.
-function request_upload {
+request_upload() {
   curl -X GET --silent --digest --user "$username":"$password" --header "Accept: application/json" https://my.cl.ly/items/new
 }
 
 # Gets the extension of the file to upload.
-function get_file_extension {
+get_file_extension() {
   # Get the file's details
   local filename
   filename="$(basename -- "$1")"
@@ -20,7 +20,7 @@ function get_file_extension {
 }
 
 # Move file to tmp so we can modify it and not touch the original.
-function move_to_tmp {
+move_to_tmp() {
   local new_filepath
   new_filepath="/tmp/$(date +%Y_%m_%d_%H%M%S).$2"
 
@@ -30,7 +30,7 @@ function move_to_tmp {
 }
 
 # Attempts to do basic conversion of video file to mp4
-function convert_video_file {
+convert_video_file() {
   local new_filepath
   new_filepath="$1.mp4"
 
@@ -40,7 +40,7 @@ function convert_video_file {
 }
 
 # Uploads the file to S3
-function upload_file {
+upload_file() {
   local filename
   filename="$(basename -- "$1")"
 
@@ -75,7 +75,7 @@ function upload_file {
 }
 
 # Get the content URL from the uploaded file.
-function get_content_url {
+get_content_url() {
   # Ping it, and get the url, removing quotes
   local content_url
   content_url="$(curl --silent -X GET --digest --user "$username":"$password" --header "Accept: application/json" "$location" | jq '.url' | sed 's/\"//g')"
@@ -86,7 +86,7 @@ function get_content_url {
 # Uploads the file to the S3 Bucket.
 # It will perform checks on the filename and do different actions
 # depending upon settings and the file type.
-function handle_file {
+handle_file() {
   # Get the extension
   local extension
   extension="$(get_file_extension "$1")"
@@ -125,13 +125,84 @@ function handle_file {
 }
 
 # Watches the folder specified for writes or moves
-function watch_directory {
+watch_directory() {
   inotifywait --quiet --event close_write,moved_to -m "$watch_dir" |
   while read -r directory events filename; do
     handle_file "$watch_dir/$filename"
   done
 }
 
-# Start!
-watch_directory
+# Gets the most recent uploads to CloudApp
+get_recent() {
+  curl -X GET --silent --digest --user "$username":"$password" --header "Accept: application/json" https://my.cl.ly/items
+}
 
+# Creates a table from the CSV data
+create_recent_table() {
+  local csv
+  csv="Title,URL,Created\n${1}"
+
+  # Use columns
+  echo -e "${csv}" | column -s ',' -t
+}
+
+# Processes the recent results to a table
+process_recent() {
+  # Get recent uploads
+  local recent
+  recent=$(get_recent)
+
+  # Process the JSON into CSV format
+  local process
+  process="$(echo "${recent}" | jq -r '.[] | "\n\"\(.name)\",\(.url),\(.created_at)"')"
+
+  echo "${process}"
+}
+
+# Displays the recent entries as a table
+display_recent_table() {
+  # Process the recent entries into CSV format
+  local process
+  process=$(process_recent)
+
+  # Generate a table from the CSV data
+  local table
+  table="$(create_recent_table "${process}")"
+
+  echo "${table}"
+}
+
+# Copies the most recent upload to clipboard
+copy_most_recent() {
+  # Get recent uploads
+  local recent
+  recent=$(get_recent)
+
+  # Process the JSON into CSV format
+  local process
+  process="$(echo "${recent}" | jq -r '.[0] | .url')"
+
+  # Copy to clipboard for use
+  echo "$process" | xclip -selection clipboard
+
+  echo "Copied: $process"
+}
+
+# Start!
+case "$1" in
+  watch)
+    watch_directory
+    ;;
+  recent)
+    display_recent_table
+    ;;
+  copy-recent)
+    copy_most_recent
+    ;;
+  *)
+    echo $"Usage: $0 {watch|recent|copy-recent}"
+    echo "  watch - Watches files in the configured directory to upload"
+    echo "  recent - Lists your most recent uploads in table format"
+    echo "  copy-recent - Copy the most recent upload to the clipboard"
+    ;;
+esac

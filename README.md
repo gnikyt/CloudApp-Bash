@@ -28,9 +28,17 @@ convert_video=1 # 1 = Convert videos to MP4, 0 = Leave them
 notify=1 # 1 = Use notify-send to notify when available in the clipboard.
 ```
 
-## Running
+## Usage
 
-`chmod +X (path to cloudapp script)`. Then simply add a start script pointing to `cloudapp` script or run directly.
+`chmod +X (path to cloudapp script)`. Then simply add a start script pointing to `cloudapp watch` script or run directly to start watching.
+
+```bash
+$ ./cloudapp 
+Usage: ./cloudapp {watch|recent|copy-recent}
+  watch - Watches files in the configured directory to upload
+  recent - Lists your most recent uploads in table format
+  copy-recent - Copy the most recent upload to the clipboard
+```
 
 ## Tips
 
