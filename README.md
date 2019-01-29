@@ -1,12 +1,16 @@
 # CloudApp Bash
 
-Basic CloudApp implementation for Linux written in Bash. It will watch a directory for new files, upload to your CloudApp account and copy the share URL to your clipboard.
+Basic CloudApp implementation for Linux written in Bash.
+
+This script will watch a set directory for new files (created or moved into the directory). It will then upload to your CloudApp account and copy the share URL to your clipboard.
+
+Currently, CloudApp has no native Linux client. The advantage of this script is its completely agnostic; you can use any screenshot software, recording software, or simply drop files into the watched directory and it will process them for you.
 
 ![Sample](sample.gif?raw=true "Sample")
 
 ## Installation
 
-First, you'll need the following:
+First, you'll need the following libraries:
 
 + `jq` (required) To handle JSON
 + `inotify-tools` (required) For watching the directory
@@ -14,7 +18,7 @@ First, you'll need the following:
 + `ffmpeg` (optional) If you plan on having videos converted for you
 + `notify-send` (optional) To send notification to desktop
 
-On Debian-based systems the following should work:
+On Debian-based systems the following will work:
 
 `sudo apt install jq inotify-tools curl ffmpeg libnotify-bin`
 
@@ -24,8 +28,8 @@ Next, create a file in your home directory named `.cloudapp` with the following 
 watch_dir=/home/(yourname)/CloudApp # Directory to watch
 username="your-email"
 password="yout-password"
-convert_video=1 # 1 = Convert videos to MP4, 0 = Leave them
-notify=1 # 1 = Use notify-send to notify when available in the clipboard.
+convert_video=1 # 1 = Convert videos to MP4, 0 = Leave them as-is
+notify=1 # 1 = Use notify-send to notify when available in the clipboard, 0 = Ignore clipboard action
 ```
 
 ## Usage
@@ -44,6 +48,6 @@ Usage: ./cloudapp {watch|recent|copy-recent}
 
 ### GNOME Screenshot
 
-Change the defautl directory to your CloudApp configured directory:
+Change the default directory to your CloudApp configured directory:
 
 `gsettings set org.gnome.gnome-screenshot auto-save-directory 'file:///home/(your-name)/(path to your folder in .cloudapp config)'`.
