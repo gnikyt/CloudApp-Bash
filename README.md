@@ -22,7 +22,7 @@ On Debian-based systems the following will work:
 
 `sudo apt install jq inotify-tools curl ffmpeg libnotify-bin`
 
-Next, create a file in your home directory named `.cloudapp` with the following contents:
+Next, create a file in your `$XDG_CONFIG_HOME/cloudapp-bash/config` (ex: `~/.config/cloudapp-bash/config`) directory named `.cloudapp` with the following contents:
 
 ```conf
 watch_dir=/home/(yourname)/CloudApp # Directory to watch

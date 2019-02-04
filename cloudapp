@@ -1,5 +1,5 @@
 #!/bin/bash
-source ~/.cloudapp
+source ${XDG_CONFIG_HOME:-~/.config}/cloudapp-bash/config
 
 # Requests to upload to CloudApp.
 # Returns S3 params and a URL to POST to.
